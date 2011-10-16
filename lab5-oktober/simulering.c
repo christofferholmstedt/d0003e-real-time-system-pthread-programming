@@ -25,15 +25,28 @@
  *************************************************/
 int main(int argc, char *argv[])
 {
-
     int c;
-    c = getchar();
 
-    while (c != EOF)
+    while((c = getchar()) != EOF)
     {
-        putchar(c);
-        c = getchar();
-    }
+        if (c == 10)
+        {
+            // Do nothing when entered is pressed.
+        } else if (c == 110)
+        {
+            printf("You pressed n\n");
+        } else if (c == 115)
+        {
+            printf("You pressed s\n");
+        } else if (c == 113)
+        {
+            break;
+        } else {
+            printf("Press \"n\" to add a northbound car\n");
+            printf("Press \"s\" to add a southbound car\n");
+            printf("Press \"q\" to quit\n");
+        }
+    } 
     
    // Last thing that main() should do
    printf("Last call...shutting down...\n");
