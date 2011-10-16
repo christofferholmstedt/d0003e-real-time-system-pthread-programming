@@ -1,15 +1,5 @@
-/*****************************************************************************
-* Original from:
-* FILE: hello.c
-* DESCRIPTION:
-*   A "hello world" Pthreads program.  Demonstrates thread creation and
-*   termination.
-* AUTHOR: Blaise Barney
-* LAST REVISED: 08/09/11
-******************************************************************************/
-
 /***
- * Heavily modified by Christoffer Holmstedt
+ * Written by Christoffer Holmstedt
  * 2011-10-16
  **/
 #include <pthread.h>
@@ -18,7 +8,11 @@
 #include <errno.h>
 #include <string.h>
 
-#define NUM_THREADS 20	
+#include <termios.h> // COMport communication - http://uw714doc.sco.com/en/man/html.3C/termios.3C.html
+
+#include <sys/types.h> // File access - http://uw714doc.sco.com/en/man/html.2/open.2.html
+#include <sys/stat.h>
+#include <fcntl.h>
 
 /*************************************************
  * Main thread.
@@ -52,35 +46,3 @@ int main(int argc, char *argv[])
    printf("Last call...shutting down...\n");
    pthread_exit(NULL);
 }
-
-/*
-void *PrintHello(void *threadid)
-{
-   long tid;
-   tid = (long)threadid;
-   while (1) {
-        printf("Hello World! It's me, thread #%ld!\n", tid);
-   }
-   pthread_exit(NULL);
-}
-*/
-/*
-int main(int argc, char *argv[])
-{
-   pthread_t threads[NUM_THREADS];
-   int rc;
-   long t;
-   for(t=0;t<NUM_THREADS;t++){
-     printf("In main: creating thread %ld\n", t);
-     rc = pthread_create(&threads[t], NULL, PrintHello, (void *)t);
-     if (rc){
-       printf("ERROR; return code from pthread_create() is %d\n", rc);
-       exit(-1);
-       }
-     }
-
-   // Last thing that main() should do
-   printf("Last call...shutting down...\n");
-   pthread_exit(NULL);
-}
-*/
