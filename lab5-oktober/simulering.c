@@ -14,19 +14,43 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#define NORTHBOUND_CAR_ARRIVAL 0x01 // Received
+#define NORTHBOUND_BRIDGE_SENSOR 0x02
+#define SOUTHBOUND_CAR_ARRIVAL 0x04 
+#define SOUTHBOUND_BRIDGE_SENSOR 0x08
+
+#define NORTHBOUND_GREEN_LIGHT 0x01 // Transmission
+#define NORTHBOUND_RED_LIGHT 0x02 
+#define SOUTHBOUND_GREEN_LIGHT 0x04 
+#define SOUTHBOUND_RED_LIGHT 0x08 
+
 #define TRUE 1
 #define FALSE 0
 
+unsigned int Com1;
+
+void write_data(int arg);
+
+/*************************************************
+ * Author: Ib Lundgren
+ *************************************************/
+// Flush data to the avr, avr_fd is global so use mutex to be safe
+void write_data(int data) {
+    write(Com1, &data, 1);  
+}
+/*************************************************
+ * End Author: Ib Lundgren
+ *************************************************/
+ 
 /*************************************************
  * Main thread.
  *************************************************/
 int main(int argc, char *argv[])
 {
 	unsigned char characterInput = 0;
-	unsigned int Com1, c, trafficLightSignal, readFromCom1 = FALSE, readFromKeyboard = FALSE;	
+	unsigned int c, trafficLightSignal, readFromCom1 = FALSE, readFromKeyboard = FALSE;	
 	struct termios Com1Config;
-	
-	
+
 	// Original code/structure from lecture 14 presentation images
 	Com1 = open("/dev/ttyS0", O_RDWR | O_NONBLOCK); 	// open comport
 
@@ -85,10 +109,30 @@ int main(int argc, char *argv[])
 				// Do nothing when entered is pressed.
 			} else if (c == 110)
 			{
+				// Northbound car arrival sensor activated
 				printf("You pressed n\n");
+				write_data(NORTHBOUND_CAR_ARRIVAL);
 			} else if (c == 115)
 			{
+				// Southbound car arrival sensor activated
 				printf("You pressed s\n");
+				write_data(SOUTHBOUND_CAR_ARRIVAL);
+			/***
+			 * TESTING TRANSMISSION
+			 */
+			} else if (c == 109)
+			{
+				// Northbound bridge entry sensor activated
+				printf("You pressed m\n");
+				write_data(NORTHBOUND_BRIDGE_SENSOR);
+			} else if (c == 100)
+			{
+				// Southbound bridge entry sensor activated
+				printf("You pressed d\n");
+				write_data(SOUTHBOUND_BRIDGE_SENSOR);
+			/***
+			 * END OF TESTING
+			 */
 			} else if (c == 113)
 			{
 				// Quit if q is pressed
@@ -120,7 +164,7 @@ int main(int argc, char *argv[])
 			{
 				printf("Southbound has now red light.\n");
 			} else {
-				printf("I didn't understand input from COM1 port: %d\n", characterInput);
+				printf("I didn't understand input from COM1 port (Decimal value): %d\n", characterInput);
 			}
 			// Include keyboard again after it has been removed by select() function when select() returned.
 			FD_SET(0, &setOfFDs);
