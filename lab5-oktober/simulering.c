@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 			// Include keyboard again after it has been removed by select() function when select() returned.
 			FD_SET(Com1, &setOfFDs);
 			readFromKeyboard = FALSE; // Reset
-			transmitData = ""; // Reset
+			transmitData = 0; // Reset
 		}
 		
 		// Take care of Com1 input
