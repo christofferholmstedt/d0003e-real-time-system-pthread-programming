@@ -171,23 +171,27 @@ void *iothread(void *bridgeStatusInput)
 				pthread_mutex_lock (&mutexBridgeStatus);
 				bridgeStatus.northQ++;
 				pthread_mutex_unlock (&mutexBridgeStatus);
-				// printf("Northbound cars: %d\n",bridgeStatus.northQ);
 				
 				transmitData = NORTHBOUND_CAR_ARRIVAL;
 				write(Com1, &transmitData, 1);
+				// printf("Northbound cars: %d\n",bridgeStatus.northQ);
+				
+				
 			} else if (c == 115)
 			{
 				// Southbound car arrival sensor activated
 				pthread_mutex_lock (&mutexBridgeStatus);
 				bridgeStatus.southQ++;
 				pthread_mutex_unlock (&mutexBridgeStatus);
-				// printf("Southbound cars: %d\n",bridgeStatus.southQ);
 				
 				transmitData = SOUTHBOUND_CAR_ARRIVAL;
 				write(Com1, &transmitData, 1);
+				// printf("Southbound cars: %d\n",bridgeStatus.southQ);
+				
 			/***
 			 * TESTING TRANSMISSION
 			 */
+			/*
 			} else if (c == 109)
 			{
 				// Northbound bridge entry sensor activated
@@ -200,6 +204,7 @@ void *iothread(void *bridgeStatusInput)
 				// printf("You pressed d\n");
 				transmitData = SOUTHBOUND_BRIDGE_SENSOR;
 				write(Com1, &transmitData, 1);
+			*/
 			/***
 			 * END OF TESTING
 			 */
@@ -222,11 +227,11 @@ void *iothread(void *bridgeStatusInput)
 				
 				transmitData = WIPEOUT_ALL_CARS_IN_BOTH_QUEUES;
 				write(Com1, &transmitData, 1);
-			} else {
+			}/* else {
 				printf("Press \"n\" to add a northbound car\n");
 				printf("Press \"s\" to add a southbound car\n");
 				printf("Press \"q\" to quit\n");
-			}
+			}*/
 			// Include keyboard again after it has been removed by select() function when select() returned.
 			FD_SET(Com1, &setOfFDs);
 			readFromKeyboard = FALSE; // Reset
@@ -241,30 +246,32 @@ void *iothread(void *bridgeStatusInput)
 			{
 				pthread_mutex_lock (&mutexBridgeStatus);
 				bridgeStatus.northboundTrafficlight = GREEN;
+				if (bridgeStatus.northQ > 0) bridgeStatus.northQ--;
+				pthread_mutex_unlock (&mutexBridgeStatus);
+				
 				transmitData = NORTHBOUND_BRIDGE_SENSOR;
 				write(Com1, &transmitData, 1);
-				pthread_mutex_unlock (&mutexBridgeStatus);
 				
 			} else if (characterInput == NORTHBOUND_RED_LIGHT)
 			{
 				pthread_mutex_lock (&mutexBridgeStatus);
 				bridgeStatus.northboundTrafficlight = RED;
-				if (bridgeStatus.northQ > 0) bridgeStatus.northQ--;
-				transmitData = SOUTHBOUND_BRIDGE_SENSOR;
-				write(Com1, &transmitData, 1);
 				pthread_mutex_unlock (&mutexBridgeStatus);
 				
 			} else if (characterInput == SOUTHBOUND_GREEN_LIGHT)
 			{
 				pthread_mutex_lock (&mutexBridgeStatus);
 				bridgeStatus.southboundTrafficlight = GREEN;
+				if (bridgeStatus.southQ > 0) bridgeStatus.southQ--;
 				pthread_mutex_unlock (&mutexBridgeStatus);
+				
+				transmitData = SOUTHBOUND_BRIDGE_SENSOR;
+				write(Com1, &transmitData, 1);
 				
 			} else if (characterInput == SOUTHBOUND_RED_LIGHT)
 			{
 				pthread_mutex_lock (&mutexBridgeStatus);
 				bridgeStatus.southboundTrafficlight = RED;
-				if (bridgeStatus.southQ > 0) bridgeStatus.southQ--;
 				pthread_mutex_unlock (&mutexBridgeStatus);
 				
 			} else {
