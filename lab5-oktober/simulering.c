@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
 #include <termios.h> // COMport communication - http://uw714doc.sco.com/en/man/html.3C/termios.3C.html
 
@@ -19,6 +20,7 @@
 #define NORTHBOUND_BRIDGE_SENSOR 0x02
 #define SOUTHBOUND_CAR_ARRIVAL 0x04
 #define SOUTHBOUND_BRIDGE_SENSOR 0x08
+#define WIPEOUT_ALL_CARS_IN_BOTH_QUEUES 0xCC
 
 #define NORTHBOUND_GREEN_LIGHT 0x01 // Received
 #define NORTHBOUND_RED_LIGHT 0x02 
@@ -28,13 +30,80 @@
 #define TRUE 1
 #define FALSE 0
 
+#define GREEN 1
+#define RED 0
+
+struct bridgeStatus{
+   unsigned int southQ;
+   unsigned int northQ;
+   unsigned int northboundTrafficlight;
+   unsigned int southboundTrafficlight;
+   unsigned int stopViewer;
+};
+
+struct bridgeStatus bridgeStatus;
+pthread_mutex_t mutexBridgeStatus;
+
 unsigned int Com1;
+/*************************************************
+ * viewer thread/function
+ *************************************************/
+ void *viewer(void *bridgeStatusInput)
+{
+	// Bridgestatus variables
+	struct bridgeStatus *bridgeStatusIO;
+	bridgeStatusIO = (struct bridgeStatus *) bridgeStatusInput;
+	
+	// Date and time information
+	// Source: http://www.java2s.com/Code/C/Development/PrintlocalandUTCtime.htm
+	struct tm *local;
+	time_t t;
+	
+	while (bridgeStatus.stopViewer == FALSE)
+	{
+		pthread_mutex_lock (&mutexBridgeStatus);
+		t = time(NULL);
+		local = localtime(&t);
+		printf("\n\n\n\n\n/------------------------------\\\n");
+		printf("| %s", asctime(local));
+		printf("| Press \"n\" for new northbound car\n");
+		printf("| Press \"s\" for new southbound car\n");
+		printf("| Press \"q\" to quit\n");
+		// printf("| Press \"c\" to wipe both queues (testing purpose)\n");
+		printf("|\n| ----- Bridgestatus -----\n");
+		printf("| Northbound cars in queue: %d\n", bridgeStatus.northQ);
+		printf("| Southbound cars in queue: %d\n", bridgeStatus.southQ);
+		
+		// Northbound traffic lights
+		if (bridgeStatus.northboundTrafficlight == GREEN) {
+			printf("| Northbound has green light.\n");
+		} else {
+			printf("| Northbound has red light.\n");
+		}
+		
+		// Southbound traffic lights
+		if (bridgeStatus.southboundTrafficlight == GREEN) {
+			printf("| Southbound has green light.\n");
+		} else {
+			printf("| Southbound has red light.\n");
+		}
+		printf("\\------------------------------/\n");
+		pthread_mutex_unlock (&mutexBridgeStatus);
+		sleep(1);
+	}
+	pthread_exit(NULL);
+}
 
 /*************************************************
- * Main thread.
+ * io thread/function
  *************************************************/
-int main(int argc, char *argv[])
+void *iothread(void *bridgeStatusInput)
 {
+	// Bridgestatus variables
+	struct bridgeStatus *bridgeStatusIO;
+	bridgeStatusIO = (struct bridgeStatus *) bridgeStatusInput;
+	
+	// Program specific variables
 	unsigned char characterInput = 0;
 	unsigned int c, trafficLightSignal, readFromCom1 = FALSE, readFromKeyboard = FALSE;	
 	struct termios Com1Config;
@@ -99,13 +168,21 @@ int main(int argc, char *argv[])
 			} else if (c == 110)
 			{
 				// Northbound car arrival sensor activated
-				printf("You pressed n\n");
+				pthread_mutex_lock (&mutexBridgeStatus);
+				bridgeStatus.northQ++;
+				pthread_mutex_unlock (&mutexBridgeStatus);
+				// printf("Northbound cars: %d\n",bridgeStatus.northQ);
+				
 				transmitData = NORTHBOUND_CAR_ARRIVAL;
 				write(Com1, &transmitData, 1);
 			} else if (c == 115)
 			{
 				// Southbound car arrival sensor activated
-				printf("You pressed s\n");
+				pthread_mutex_lock (&mutexBridgeStatus);
+				bridgeStatus.southQ++;
+				pthread_mutex_unlock (&mutexBridgeStatus);
+				// printf("Southbound cars: %d\n",bridgeStatus.southQ);
+				
 				transmitData = SOUTHBOUND_CAR_ARRIVAL;
 				write(Com1, &transmitData, 1);
 			/***
@@ -114,13 +191,13 @@ int main(int argc, char *argv[])
 			} else if (c == 109)
 			{
 				// Northbound bridge entry sensor activated
-				printf("You pressed m\n");
+				// printf("You pressed m\n");
 				transmitData = NORTHBOUND_BRIDGE_SENSOR;
 				write(Com1, &transmitData, 1);
 			} else if (c == 100)
 			{
 				// Southbound bridge entry sensor activated
-				printf("You pressed d\n");
+				// printf("You pressed d\n");
 				transmitData = SOUTHBOUND_BRIDGE_SENSOR;
 				write(Com1, &transmitData, 1);
 			/***
@@ -129,7 +206,22 @@ int main(int argc, char *argv[])
 			} else if (c == 113)
 			{
 				// Quit if q is pressed
+				pthread_mutex_lock (&mutexBridgeStatus);
+				bridgeStatus.stopViewer = TRUE;
+				pthread_mutex_unlock (&mutexBridgeStatus);
 				break;
+			} else if (c == 99)
+			{
+				// Press C and wipeout all cars in both queues with a big laser!
+				pthread_mutex_lock (&mutexBridgeStatus);
+				bridgeStatus.northQ = 0;
+				bridgeStatus.southQ = 0;
+				pthread_mutex_unlock (&mutexBridgeStatus);
+				// printf("Northbound cars: %d\n",bridgeStatus.northQ);
+				// printf("Southbound cars: %d\n",bridgeStatus.southQ);
+				
+				transmitData = WIPEOUT_ALL_CARS_IN_BOTH_QUEUES;
+				write(Com1, &transmitData, 1);
 			} else {
 				printf("Press \"n\" to add a northbound car\n");
 				printf("Press \"s\" to add a southbound car\n");
@@ -145,18 +237,36 @@ int main(int argc, char *argv[])
 		if(readFromCom1)
 		{
 			trafficLightSignal = read(Com1, &characterInput , 1);
-			if (characterInput == 1)
+			if (characterInput == NORTHBOUND_GREEN_LIGHT)
 			{
-				printf("Northbound has now green light.\n");
-			} else if (characterInput == 2)
+				pthread_mutex_lock (&mutexBridgeStatus);
+				bridgeStatus.northboundTrafficlight = GREEN;
+				transmitData = NORTHBOUND_BRIDGE_SENSOR;
+				write(Com1, &transmitData, 1);
+				pthread_mutex_unlock (&mutexBridgeStatus);
+				
+			} else if (characterInput == NORTHBOUND_RED_LIGHT)
 			{
-				printf("Northbound has now red light.\n");
-			} else if (characterInput == 4)
+				pthread_mutex_lock (&mutexBridgeStatus);
+				bridgeStatus.northboundTrafficlight = RED;
+				if (bridgeStatus.northQ > 0) bridgeStatus.northQ--;
+				transmitData = SOUTHBOUND_BRIDGE_SENSOR;
+				write(Com1, &transmitData, 1);
+				pthread_mutex_unlock (&mutexBridgeStatus);
+				
+			} else if (characterInput == SOUTHBOUND_GREEN_LIGHT)
 			{
-				printf("Southbound has now green light.\n");
-			} else if (characterInput == 8)
+				pthread_mutex_lock (&mutexBridgeStatus);
+				bridgeStatus.southboundTrafficlight = GREEN;
+				pthread_mutex_unlock (&mutexBridgeStatus);
+				
+			} else if (characterInput == SOUTHBOUND_RED_LIGHT)
 			{
-				printf("Southbound has now red light.\n");
+				pthread_mutex_lock (&mutexBridgeStatus);
+				bridgeStatus.southboundTrafficlight = RED;
+				if (bridgeStatus.southQ > 0) bridgeStatus.southQ--;
+				pthread_mutex_unlock (&mutexBridgeStatus);
+				
 			} else {
 				printf("I didn't understand input from COM1 port (Decimal value): %d\n", characterInput);
 			}
@@ -165,8 +275,25 @@ int main(int argc, char *argv[])
 			readFromCom1 = FALSE; // Reset
 		}
 	}
-
-   // Last thing that main() should do
-   printf("Last call...shutting down...\n");
+	
    pthread_exit(NULL);
+}
+
+/*************************************************
+ * Main function/thread.
+ *************************************************/
+int main(int argc, char *argv[])
+{
+	long t;
+	pthread_t threads[2];
+	
+	bridgeStatus.northboundTrafficlight = RED; // Startup, default values
+	bridgeStatus.southboundTrafficlight = RED;
+	bridgeStatus.stopViewer = FALSE; 
+	
+	pthread_create(&threads[0], NULL, iothread, (void *) &bridgeStatus);
+	pthread_create(&threads[1], NULL, viewer, (void *) &bridgeStatus);
+	 
+	// Last thing that main() should do
+	pthread_exit(NULL);
 }
