@@ -14,12 +14,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#define NORTHBOUND_CAR_ARRIVAL 0x01 // Received
+
+#define NORTHBOUND_CAR_ARRIVAL 0x01 // Transmission
 #define NORTHBOUND_BRIDGE_SENSOR 0x02
-#define SOUTHBOUND_CAR_ARRIVAL 0x04 
+#define SOUTHBOUND_CAR_ARRIVAL 0x04
 #define SOUTHBOUND_BRIDGE_SENSOR 0x08
 
-#define NORTHBOUND_GREEN_LIGHT 0x01 // Transmission
+#define NORTHBOUND_GREEN_LIGHT 0x01 // Received
 #define NORTHBOUND_RED_LIGHT 0x02 
 #define SOUTHBOUND_GREEN_LIGHT 0x04 
 #define SOUTHBOUND_RED_LIGHT 0x08 
@@ -29,19 +30,6 @@
 
 unsigned int Com1;
 
-void write_data(int arg);
-
-/*************************************************
- * Author: Ib Lundgren
- *************************************************/
-// Flush data to the avr, avr_fd is global so use mutex to be safe
-void write_data(int data) {
-    write(Com1, &data, 1);  
-}
-/*************************************************
- * End Author: Ib Lundgren
- *************************************************/
- 
 /*************************************************
  * Main thread.
  *************************************************/
@@ -50,7 +38,8 @@ int main(int argc, char *argv[])
 	unsigned char characterInput = 0;
 	unsigned int c, trafficLightSignal, readFromCom1 = FALSE, readFromKeyboard = FALSE;	
 	struct termios Com1Config;
-
+	int transmitData;
+	
 	// Original code/structure from lecture 14 presentation images
 	Com1 = open("/dev/ttyS0", O_RDWR | O_NONBLOCK); 	// open comport
 
@@ -111,12 +100,14 @@ int main(int argc, char *argv[])
 			{
 				// Northbound car arrival sensor activated
 				printf("You pressed n\n");
-				write_data(NORTHBOUND_CAR_ARRIVAL);
+				transmitData = NORTHBOUND_CAR_ARRIVAL;
+				write(Com1, &transmitData, 1);
 			} else if (c == 115)
 			{
 				// Southbound car arrival sensor activated
 				printf("You pressed s\n");
-				write_data(SOUTHBOUND_CAR_ARRIVAL);
+				transmitData = SOUTHBOUND_CAR_ARRIVAL;
+				write(Com1, &transmitData, 1);
 			/***
 			 * TESTING TRANSMISSION
 			 */
@@ -124,12 +115,14 @@ int main(int argc, char *argv[])
 			{
 				// Northbound bridge entry sensor activated
 				printf("You pressed m\n");
-				write_data(NORTHBOUND_BRIDGE_SENSOR);
+				transmitData = NORTHBOUND_BRIDGE_SENSOR;
+				write(Com1, &transmitData, 1);
 			} else if (c == 100)
 			{
 				// Southbound bridge entry sensor activated
 				printf("You pressed d\n");
-				write_data(SOUTHBOUND_BRIDGE_SENSOR);
+				transmitData = SOUTHBOUND_BRIDGE_SENSOR;
+				write(Com1, &transmitData, 1);
 			/***
 			 * END OF TESTING
 			 */
@@ -145,6 +138,7 @@ int main(int argc, char *argv[])
 			// Include keyboard again after it has been removed by select() function when select() returned.
 			FD_SET(Com1, &setOfFDs);
 			readFromKeyboard = FALSE; // Reset
+			transmitData = ""; // Reset
 		}
 		
 		// Take care of Com1 input
