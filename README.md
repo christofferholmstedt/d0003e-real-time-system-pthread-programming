@@ -4,4 +4,8 @@ This is my source code for the fifth laboration in the course D0003E Real-Time S
 
 The controller part is the traffic control system. Not uploaded to github, I've lost it somewhere.
 
+http://www.ltu.se/edu/course/D00/D0003E?kursView=kursplan&ugglanCat=student&l=en&searchType=kursplan
+
+http://www.sm.luth.se/csee/courses/d0003e/
+
 ~ Christoffer Holmstedt 2012-05-21
